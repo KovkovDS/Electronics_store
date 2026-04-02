@@ -3,59 +3,67 @@ from mptt.models import MPTTModel
 
 
 class VendorType(models.Choices):
+    """ Модель "Тип звена сети продаж". """
     FACTORY = 'Завод'
     IE = 'ИП'
     RN = 'Розничная сеть'
 
 
 class Vendor(models.Model):
-    """
-    Модель поставщика
-    """
-    name = models.CharField(unique=True, max_length=200, verbose_name="Наименование", db_index=True)
-    type = models.CharField(choices=VendorType.choices, default=VendorType.FACTORY, verbose_name='Тип')
+    """ Модель "Поставщика". """
+    name = models.CharField(unique=True, max_length=200, verbose_name='Наименование', db_index=True)
+    type = models.CharField(choices=VendorType.choices, default=VendorType.FACTORY,
+                            verbose_name='Тип звена сети продаж')
     contacts = models.ForeignKey('Contacts', on_delete=models.CASCADE, verbose_name='Контакты')
-    email = models.EmailField(blank=True, verbose_name="E-mail")
-    products = models.ManyToManyField('Product', verbose_name='Товар', db_index=True)
-    arrears = models.FloatField(null=True, blank=True, verbose_name="Задолженность перед поставщиком")
-    release_date = models.DateTimeField(auto_now_add=True, verbose_name="Время создания", db_index=True)
-    parent = models.ForeignKey('self', on_delete=models.PROTECT, null=True, blank=True, related_name='children',
-                               db_index=True, verbose_name='Поставщик')
-    supplier_level = models.IntegerField(blank=True, verbose_name="Уровень")
+    products = models.ManyToManyField('Product', verbose_name='Товар', null=True, blank=True, db_index=True)
+    arrears = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Задолженность перед '
+                                                                                           'поставщиком')
+    release_date = models.DateTimeField(auto_now_add=True, verbose_name='Время создания', db_index=True)
+    supplier = models.ForeignKey('self', on_delete=models.PROTECT, null=True, blank=True, related_name='distributor',
+                                 db_index=True, verbose_name='Поставщик')
 
     def __str__(self):
-        return f'{self.type} {self.name} {self.email}'
+        """Метод для описания человеко читаемого вида модели "Поставщик"."""
+        return f'{self.type} {self.name} {self.contacts.email}'
 
     class Meta:
+        """Класс для изменения поведения полей модели "Поставщик"."""
         verbose_name = 'Поставщик'
         verbose_name_plural = 'Поставщики'
-        ordering = ["parent", "name", "type", "email"]
+        ordering = ['name', 'type', 'supplier', 'contacts.city', 'arrears']
 
 
 class Contacts(models.Model):
-    country = models.CharField(max_length=200, verbose_name="Страна")
-    city = models.CharField(max_length=200, verbose_name="Город")
-    street = models.CharField(max_length=200, verbose_name="Улица")
-    house = models.CharField(max_length=200, verbose_name="Дом")
+    """ Модель "Контакты". """
+    email = models.EmailField(verbose_name='Почта')
+    country = models.CharField(max_length=200, verbose_name='Страна')
+    city = models.CharField(max_length=200, verbose_name='Город')
+    street = models.CharField(max_length=200, verbose_name='Улица')
+    house = models.CharField(max_length=200, verbose_name='Дом')
 
     def __str__(self):
-        return f"{self.country}, {self.city}, {self.street}. {self.house}"
+        """Метод для описания человеко читаемого вида модели "Контакты"."""
+        return f'{self.email}, {self.country}, {self.city}, {self.street}. {self.house}'
 
     class Meta:
+        """Класс для изменения поведения полей модели "Контакты"."""
         verbose_name = 'Контакты'
         verbose_name_plural = 'Контакты'
-        ordering = ["country", "city", "street", "house"]
+        ordering = ['email', 'country', 'city', 'street', 'house']
 
 
 class Product(models.Model):
-    name = models.CharField(unique=True, max_length=200, verbose_name="Наименование", db_index=True)
-    model = models.CharField(unique=True, max_length=200, verbose_name="Модель", db_index=True)
-    release_date = models.DateField(auto_now_add=True, verbose_name="Дата выхода продукта", db_index=True)
+    """ Модель "Продукт". """
+    name = models.CharField(unique=True, max_length=200, verbose_name='Наименование', db_index=True)
+    model = models.CharField(unique=True, max_length=200, verbose_name='Модель', db_index=True)
+    release_date = models.DateField(auto_now_add=True, verbose_name='Дата выхода продукта', db_index=True)
 
     def __str__(self):
-        return f"{self.name} {self.model}"
+        """Метод для описания человеко читаемого вида модели "Продукт"."""
+        return f'{self.name} {self.model}'
 
     class Meta:
+        """Класс для изменения поведения полей модели "Продукт"."""
         verbose_name = 'Продукт'
         verbose_name_plural = 'Продукты'
-        ordering = ["model", "name"]
+        ordering = ['model', 'name', 'release_date']
