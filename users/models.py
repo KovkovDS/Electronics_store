@@ -33,7 +33,7 @@ class User(AbstractUser):
     """Класс модели "Пользователь"."""
 
     email = models.EmailField(unique=True, verbose_name='Адрес электронной почты')
-    phone_number = models.CharField(max_length=11, blank=True, null=True, verbose_name='Номер телефона')
+    phone_number = models.CharField(max_length=15, blank=True, null=True, verbose_name='Номер телефона')
     city = models.CharField(max_length=100, blank=True, verbose_name='Город')
     is_active = models.BooleanField(default=True, verbose_name="Активность сотрудника")
     create_at = models.DateField(auto_now_add=True, verbose_name='Дата создания')

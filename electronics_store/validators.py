@@ -20,9 +20,9 @@ class BaseValidator:
 class SupplierValidator(BaseValidator):
     """ Исключает указание ссылки на объект модели "Поставщик" при указании типа звена сети продаж как "Завод". """
     def validate(self, type_point, supplier, **kwargs):
-        if type_point == "FACTORY" and supplier is not None:
+        if type_point == "Завод" and supplier is not None:
             raise serializers.ValidationError(
-                'Если создаваемое звено сети "Завод", оно не может иметь поставщика. Проверьте корректность вводимых '
+                'Если указано звено сети "Завод", оно не может иметь поставщика. Проверьте корректность вводимых '
                 'данных'
             )
 
