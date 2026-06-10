@@ -51,7 +51,8 @@ INSTALLED_APPS = [
     "users",
     "django_mptt_admin",
     "mptt",
-    "django_filters"
+    "django_filters",
+    "drf_yasg"
 ]
 
 MIDDLEWARE = [
@@ -167,9 +168,9 @@ SIMPLE_JWT = {
 }
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-    )
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication"],
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
 }
 
 CORS_ALLOW_ALL_ORIGINS = False
