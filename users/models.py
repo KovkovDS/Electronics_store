@@ -36,8 +36,8 @@ class User(AbstractUser):
     phone_number = models.CharField(max_length=15, blank=True, null=True, verbose_name='Номер телефона')
     city = models.CharField(max_length=100, blank=True, verbose_name='Город')
     is_active = models.BooleanField(default=True, verbose_name="Активность сотрудника")
-    create_at = models.DateField(auto_now_add=True, verbose_name='Дата создания')
-    updated_at = models.DateField(auto_now=True, verbose_name='Дата последнего изменения')
+    create_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата последнего изменения')
     username = None
 
     USERNAME_FIELD = 'email'
@@ -48,7 +48,7 @@ class User(AbstractUser):
     def __str__(self):
         """Метод для описания человеко читаемого вида модели "Пользователь"."""
 
-        return self.email
+        return f'{self.id}, {self.email}'
 
     class Meta:
         """Класс для изменения поведения полей модели "Пользователь"."""

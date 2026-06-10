@@ -1,32 +1,36 @@
+from decimal import Decimal
 from rest_framework import serializers
 from electronics_store.models import Vendor, Contacts, Product
-from electronics_store.validators import SupplierValidator, ArrearsValidator
+from electronics_store.validators import SupplierValidator, ArrearsValidator, ArrearsFactoryValidator, \
+    ArrearsSupplierValidator
 
 
 class ContactsSerializer(serializers.ModelSerializer):
-    """ Класс сериализатора модели "Контакты". """
+    """Класс сериализатора модели "Контакты"."""
 
     class Meta:
-        """ Класс для изменения поведения полей сериализатора модели "Контакты". """
+        """Класс для изменения поведения полей сериализатора модели "Контакты"."""
         model = Contacts
         fields = '__all__'
-        read_only_fields = ["id"]
 
 
 class ProductSerializer(serializers.ModelSerializer):
-    """ Класс сериализатора модели "Продукт". """
+    """Класс сериализатора модели "Продукт"."""
 
     class Meta:
-        """ Класс для изменения поведения полей сериализатора модели "Продукт". """
+        """Класс для изменения поведения полей сериализатора модели "Продукт"."""
         model = Product
         fields = '__all__'
         extra_kwargs = {"release_date": {"format": "%d-%m-%Y"}}
 
 
 class SupplierSerializer(serializers.ModelSerializer):
-    """ Класс сериализатора с ограниченным доступом к полям модели "Поставщик". """
+    """Класс сериализатора с ограниченным доступом к полям модели "Поставщик"."""
     contacts = ContactsSerializer(required=False)
-    products = ProductSerializer(many=True, required=False)
+    products = ProductSerializer(
+        many=True,
+        required=False
+    )
     supplier = serializers.PrimaryKeyRelatedField(
         queryset=Vendor.objects.all(),
         required=False,
@@ -34,18 +38,20 @@ class SupplierSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        """ Класс для изменения поведения полей сериализатора модели "Поставщик". """
+        """Класс для изменения поведения полей сериализатора модели "Поставщик"."""
         model = Vendor
         fields = '__all__'
         read_only_fields = ['id']
 
         validators = [
             SupplierValidator('type_point', 'supplier'),
-            ArrearsValidator('arrears')
+            ArrearsFactoryValidator('type_point', 'arrears'),
+            ArrearsValidator('arrears'),
+            ArrearsSupplierValidator('arrears', 'supplier')
         ]
 
     def create(self, validated_data):
-        """ Метод передачи данных в сериализатор при сохранении данных. """
+        """Метод передачи данных в сериализатор при сохранении данных."""
 
         contacts_data = validated_data.pop("contacts")
         products_data = validated_data.pop("products", [])
@@ -60,18 +66,31 @@ class SupplierSerializer(serializers.ModelSerializer):
         return supplier
 
     def update(self, instance, validated_data):
-        """ Метод передачи данных в сериализатор при сохранении данных. """
+        """Метод передачи данных в сериализатор при сохранении данных."""
 
         instance.title = validated_data.get("name", instance.name)
         instance.type_point = validated_data.get("type_point", instance.type_point)
-        instance.arrears = validated_data.get("arrears", instance.arrears)
-        instance.supplier = validated_data.get("supplier", instance.supplier)
-
-        if instance.type_point == "Завод" and instance.supplier is not None:
-            raise serializers.ValidationError(
-                'Если указано звено сети "Завод", оно не может иметь поставщика. Проверьте корректность вводимых '
-                'данных'
-            )
+        if "arrears" in validated_data:
+            if validated_data["arrears"] is None:
+                validated_data["arrears"] = Vendor.objects.filter(pk=instance.pk).first().arrears
+            else:
+                if Decimal(validated_data["arrears"]) > 0 and instance.type_point == 'Завод':
+                    raise serializers.ValidationError(
+                        'Если указано звено сети "Завод", оно не может иметь положительное значение в поле '
+                        '"Задолженность перед поставщиком".'
+                    )
+                else:
+                    instance.arrears = validated_data.get("arrears", instance.arrears)
+        if "supplier" in validated_data:
+            if validated_data["supplier"] is None:
+                validated_data["supplier"] = Vendor.objects.filter(pk=instance.pk).first().supplier
+            else:
+                if instance.type_point == "Завод" and validated_data["supplier"] is not None:
+                    raise serializers.ValidationError('Если указано звено сети "Завод", оно не может иметь '
+                                                      'поставщика. Проверьте корректность вводимых данных.'
+                                                      )
+                else:
+                    instance.supplier = validated_data.get("supplier", instance.supplier)
 
         contacts_data = validated_data.get("contacts", {})
         contacts_serializer = ContactsSerializer(instance.contacts, data=contacts_data, partial=True)
@@ -89,8 +108,8 @@ class SupplierSerializer(serializers.ModelSerializer):
 
 
 class SupplierAdminRootSerializer(serializers.ModelSerializer):
-    """ Класс сериализатора модели "Поставщик". """
-    contacts = ContactsSerializer(required=False)
+    """Класс сериализатора модели "Поставщик"."""
+    contacts = ContactsSerializer(required=False, read_only=False)
     products = ProductSerializer(many=True, required=False)
     supplier = serializers.PrimaryKeyRelatedField(
         queryset=Vendor.objects.all(),
@@ -99,15 +118,17 @@ class SupplierAdminRootSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        """ Класс для изменения поведения полей сериализатора модели "Поставщик". """
+        """Класс для изменения поведения полей сериализатора модели "Поставщик"."""
         model = Vendor
         fields = '__all__'
         validators = [
-            SupplierValidator('type_point', 'supplier')
+            SupplierValidator('type_point', 'supplier'),
+            ArrearsFactoryValidator('arrears', 'type_point'),
+            ArrearsSupplierValidator('arrears', 'supplier')
         ]
 
     def create(self, validated_data):
-        """ Метод передачи данных в сериализатор при сохранении данных. """
+        """Метод передачи данных в сериализатор при сохранении данных."""
 
         contacts_data = validated_data.pop("contacts")
         products_data = validated_data.pop("products", [])
@@ -122,18 +143,31 @@ class SupplierAdminRootSerializer(serializers.ModelSerializer):
         return supplier
 
     def update(self, instance, validated_data):
-        """ Метод передачи данных в сериализатор при обновлении данных. """
+        """Метод передачи данных в сериализатор при обновлении данных."""
 
         instance.title = validated_data.get("name", instance.name)
         instance.type_point = validated_data.get("type_point", instance.type_point)
-        instance.arrears = validated_data.get("arrears", instance.arrears)
-        instance.supplier = validated_data.get("supplier", instance.supplier)
-
-        if instance.type_point == "Завод" and instance.supplier is not None:
-            raise serializers.ValidationError(
-                'Если указано звено сети "Завод", оно не может иметь поставщика. Проверьте корректность вводимых '
-                'данных'
-            )
+        if "arrears" in validated_data:
+            if validated_data["arrears"] is None:
+                validated_data["arrears"] = Vendor.objects.filter(pk=instance.pk).first().arrears
+            else:
+                if Decimal(validated_data["arrears"]) > 0 and instance.type_point == 'Завод':
+                    raise serializers.ValidationError(
+                        'Если указано звено сети "Завод", оно не может иметь положительное значение в поле '
+                        '"Задолженность перед поставщиком".'
+                    )
+                else:
+                    instance.arrears = validated_data.get("arrears", instance.arrears)
+        if "supplier" in validated_data:
+            if validated_data["supplier"] is None:
+                validated_data["supplier"] = Vendor.objects.filter(pk=instance.pk).first().supplier
+            else:
+                if instance.type_point == "Завод" and validated_data["supplier"] is not None:
+                    raise serializers.ValidationError('Если указано звено сети "Завод", оно не может иметь '
+                                                      'поставщика. Проверьте корректность вводимых данных.'
+                                                      )
+                else:
+                    instance.supplier = validated_data.get("supplier", instance.supplier)
 
         contacts_data = validated_data.get("contacts", {})
         contacts_serializer = ContactsSerializer(instance.contacts, data=contacts_data, partial=True)
